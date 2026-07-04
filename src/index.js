@@ -30,9 +30,44 @@ async function main() {
   const monitoredGroupJids = new Set(cfg.groupJids);
   const adminJidSet = new Set(cfg.adminJids);
   const selfJid = `${cfg.botPhoneNumber}@s.whatsapp.net`;
+  // WhatsApp may route our own self-chat under either JID form (see
+  // maybeDiscoverOwnLid below) - ownJids holds every form seen for "this is me
+  // talking to myself", starting with the phone-number JID and gaining the
+  // @lid alias once discovered.
+  const ownJids = new Set([selfJid]);
 
   let activeSock = null;
   let startupDmSent = false;
+  let ownLidDiscovered = false;
+
+  // WhatsApp increasingly routes our own self-chat under an opaque "@lid"
+  // identity instead of the phone-number JID in config.json (see AGENTS.md
+  // gotcha #4). Baileys exposes both forms via sock.user right after
+  // connecting, but exactly when that becomes available has proven to vary
+  // (observed: present on some connects, not yet populated on others,
+  // seemingly depending on whether this is a fresh pairing vs. a plain
+  // reconnect). Rather than depend on catching it at one exact moment, this
+  // is called on every connect AND on every message until it succeeds once -
+  // cheap after that (it no-ops immediately via the flag).
+  const maybeDiscoverOwnLid = async (sock) => {
+    if (ownLidDiscovered) return;
+    if (!adminJidSet.has(selfJid) || !sock.user?.lid) {
+      logger.debug({ selfJidIsAdmin: adminJidSet.has(selfJid), user: sock.user }, 'Own @lid not yet available');
+      return;
+    }
+    try {
+      const { jidNormalizedUser } = await import('@whiskeysockets/baileys');
+      const ownLid = jidNormalizedUser(sock.user.lid);
+      if (ownLid) {
+        adminJidSet.add(ownLid);
+        ownJids.add(ownLid);
+        ownLidDiscovered = true;
+        logger.info({ ownLid }, 'Discovered own @lid identity - admin chat now recognized under both JID forms');
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Failed to resolve own @lid identity - will retry on next message');
+    }
+  };
 
   const dmAdmins = async (sock, text) => {
     for (const jid of cfg.adminJids) {
@@ -99,6 +134,7 @@ async function main() {
 
   const handleAdminCommand = async (sock, msg) => {
     const text = extractText(msg).trim();
+    logger.debug({ remoteJid: msg.key.remoteJid, fromMe: msg.key.fromMe, text }, 'Admin chat message received');
     const match = text.match(BOT_COMMAND_RE);
     if (!match) return; // not addressed to the bot - admin chats are personal chats too
 
@@ -178,13 +214,18 @@ async function main() {
 
   const onMessages = async (sock, msg, { isOffline = false } = {}) => {
     if (!msg.message) return;
+    await maybeDiscoverOwnLid(sock);
 
     const chatJid = msg.key.remoteJid;
+    logger.debug(
+      { chatJid, fromMe: msg.key.fromMe, matchesConfiguredAdmin: adminJidSet.has(chatJid), configuredAdminJids: cfg.adminJids },
+      'Inbound message routing check'
+    );
     if (adminJidSet.has(chatJid)) {
       // In the self-chat the admin's own commands arrive as fromMe. In another
       // admin's DM chat, fromMe means the bot's outgoing summaries - never
       // parse those as commands.
-      if (!msg.key.fromMe || chatJid === selfJid) {
+      if (!msg.key.fromMe || ownJids.has(chatJid)) {
         await handleAdminCommand(sock, msg);
       }
       return;
@@ -274,6 +315,8 @@ async function main() {
 
   const onConnected = async (sock) => {
     activeSock = sock;
+    await maybeDiscoverOwnLid(sock);
+
     if (startupDmSent) return; // reconnects within one run shouldn't re-announce
     startupDmSent = true;
 

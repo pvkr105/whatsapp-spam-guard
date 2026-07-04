@@ -123,12 +123,24 @@ alarming but isn't the actual bug:
    members are part of the announcement group. `config.json`'s `communityJid`
    must be the announcement group's JID.
 
-4. **WhatsApp's `@lid` ("Linked ID") system.** Group participants increasingly
-   show up as `<number>@lid` instead of `<number>@s.whatsapp.net`, hiding real
-   phone numbers. This is an active area of change in WhatsApp's protocol and
-   Baileys' support for it; expect some background decrypt/session noise
-   involving `@lid` participants that isn't necessarily related to whatever
-   you're actually debugging.
+4. **WhatsApp's `@lid` ("Linked ID") system.** Participants (including your own
+   admin self-chat) increasingly show up as `<opaque-id>@lid` instead of
+   `<number>@s.whatsapp.net` - a real bug hit during this project's own
+   development, not just background noise: an admin's self-chat message
+   arriving as `@lid` fell straight through the `adminJidSet.has(chatJid)`
+   check in `src/index.js` (config only lists the `@s.whatsapp.net` form),
+   then hit `if (msg.key.fromMe) return;` immediately after, so `bot help`
+   produced total silence with no error anywhere. Fixed in `onConnected`:
+   Baileys exposes the account's own `@lid` alias via `sock.user.lid` right
+   after connecting, so it's auto-discovered and added to the recognized-admin
+   set at runtime instead of requiring a hand-copied opaque ID in
+   `config.json`. If "the bot doesn't respond to `bot` commands" comes up
+   again, set `LOG_LEVEL=debug` and check the `Inbound message routing check`
+   line for `chatJid` ending in `@lid` with `matchesConfiguredAdmin: false`
+   before assuming it's a new bug. Separately, expect some background
+   decrypt/session noise (`Bad MAC`, `Failed to decrypt message with any known
+   session`) around `@lid` participants in groups that isn't necessarily
+   related to whatever you're actually debugging.
 
 5. **Be skeptical of web-search results suggesting hand-patches to
    `node_modules/@whiskeysockets/baileys` internals.** During this project's
