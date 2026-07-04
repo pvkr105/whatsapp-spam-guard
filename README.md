@@ -49,6 +49,7 @@ then reports exactly what it did straight to your DMs.
 - [Running once a day instead of 24/7](#running-once-a-day-instead-of-247)
 - [Going live](#going-live)
 - [Deploying to a free VM](#deploying-to-a-free-vm)
+- [Managing the bot once it's deployed](#managing-the-bot-once-its-deployed)
 - [Logs: what to check and when](#logs-what-to-check-and-when)
 - [Configuration reference](#configuration-reference)
 - [Adding a new spam category](#adding-a-new-spam-category)
@@ -374,6 +375,48 @@ For a long-running VM, also cap log growth: `pm2 install pm2-logrotate` rotates
 pm2's own logs, and `logs/combined.log` can simply be deleted between restarts
 if it gets large (`logs/actions.log` grows much more slowly — one short block
 per action — and is the one worth keeping).
+
+## Managing the bot once it's deployed
+
+Connect first:
+
+```bash
+ssh -i /path/to/your-key.key ubuntu@<vm-public-ip>
+```
+
+Everything below runs on the VM, once connected:
+
+| Task                              | Command                                  |
+| ---------------------------------- | ----------------------------------------- |
+| Check it's running                 | `pm2 status`                              |
+| Watch live logs                    | `pm2 logs whatsapp-spam-guard`            |
+| View recent logs without tailing   | `pm2 logs whatsapp-spam-guard --lines 50 --nostream` |
+| Stop the bot                       | `pm2 stop whatsapp-spam-guard`            |
+| Start it again                     | `pm2 start whatsapp-spam-guard`           |
+| Restart (e.g. after a config edit) | `pm2 restart whatsapp-spam-guard`         |
+| Remove it from pm2 entirely        | `pm2 delete whatsapp-spam-guard`          |
+
+`pm2 logs` with no app name tails every pm2-managed process, including the
+`pm2-logrotate` module if installed — use the app name to scope it to just this
+bot.
+
+Editing `config/config.json` (new rule, flipping `actionMode`, updating
+`allowlistJids`, etc.) takes effect on the next `pm2 restart whatsapp-spam-guard`
+— no reinstall or re-pairing needed, since `auth/` is untouched by a restart.
+
+Pulling code updates from git:
+
+```bash
+cd ~/whatsapp-spam-guard
+git pull
+npm install   # only needed if dependencies changed
+pm2 restart whatsapp-spam-guard
+```
+
+The systemd service registered during deploy (`pm2 startup systemd`) means a VM
+reboot brings the bot back automatically — `pm2 save` re-freezes the process
+list if you `pm2 start`/`stop`/`delete` anything and want that to persist across
+the next reboot too.
 
 ## Logs: what to check and when
 
