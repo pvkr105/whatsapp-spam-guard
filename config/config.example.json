@@ -1,0 +1,63 @@
+{
+  "communityJid": "REPLACE_WITH_COMMUNITY_JID@g.us",
+  "groupJids": [
+    "REPLACE_WITH_GROUP_1_JID@g.us",
+    "REPLACE_WITH_GROUP_2_JID@g.us",
+    "REPLACE_WITH_GROUP_3_JID@g.us",
+    "REPLACE_WITH_GROUP_4_JID@g.us",
+    "REPLACE_WITH_GROUP_5_JID@g.us"
+  ],
+  "adminJids": ["REPLACE_WITH_YOUR_NUMBER@s.whatsapp.net"],
+  "allowlistJids": [],
+  "circuitBreaker": {
+    "enabled": true,
+    "maxActions": 10,
+    "windowMinutes": 10
+  },
+  "rules": [
+    {
+      "id": "investment-spam",
+      "enabled": true,
+      "actionMode": "log-only",
+      "requireLink": true,
+      "linkPattern": "chat\\.whatsapp\\.com/",
+      "keywords": [
+        "invest",
+        "investing",
+        "investment",
+        "stocks",
+        "stock market",
+        "mutual fund",
+        "mutual funds",
+        "trading",
+        "profit",
+        "returns",
+        "sip",
+        "crypto",
+        "forex",
+        "demat",
+        "intraday"
+      ],
+      "minKeywordMatches": 1,
+      "reviewKeywordMatches": 1
+    },
+    {
+      "id": "job-scam-spam",
+      "enabled": false,
+      "actionMode": "log-only",
+      "requireLink": true,
+      "linkPattern": "chat\\.whatsapp\\.com/|wa\\.me/",
+      "keywords": [
+        "work from home",
+        "part time job",
+        "daily payment",
+        "earn per day",
+        "no investment needed",
+        "data entry job",
+        "whatsapp job"
+      ],
+      "minKeywordMatches": 2,
+      "reviewKeywordMatches": 1
+    }
+  ]
+}
