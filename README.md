@@ -87,6 +87,14 @@ flowchart LR
 > In log-only mode the delete/remove step is **simulated and reported instead
 > of executed** — see [Test in log-only mode first](#test-in-log-only-mode-first).
 
+> [!NOTE]
+> The message is deleted immediately, but the sender's removal is deliberately
+> delayed by a random 5-15 seconds (see `REMOVAL_JITTER_MIN_MS`/`_MAX_MS` in
+> `src/moderation.js`) so the bot doesn't act on a spam message at obviously
+> inhuman, sub-second speed. `logs/actions.log` and the DM summary are only
+> written once that delay has elapsed, so don't expect them the instant the
+> message disappears.
+
 ## What you need
 
 - **Node.js 20.11 or newer** (22 LTS recommended) — check with `node -v`,
@@ -323,6 +331,8 @@ the announcement group (and therefore the community) as well as the subgroup the
 posted in. The bot removes the sender from every configured `groupJids` entry
 plus `communityJid` individually — this is correct regardless of whether removing
 someone from the announcement group happens to cascade to subgroups too.
+Give it up to 15 seconds after the message disappears before concluding removal
+didn't happen — see the jitter note in [How it works](#how-it-works).
 
 ### Then flip the switch
 

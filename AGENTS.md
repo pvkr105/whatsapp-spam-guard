@@ -29,7 +29,11 @@ matching the exact error message before spending time on this project's own code
   (`'notify'`) and offline-backlog (`'append'`) messages to the caller's
   `onMessages` callback, tagged with `isOffline`.
 - `src/moderation.js` — `actOnSpam()` performs the actual delete + remove-from-
-  every-group actions (or simulates them in log-only mode).
+  every-group actions (or simulates them in log-only mode). Deletion is
+  immediate; removal is deliberately delayed by a random 5-15s jitter
+  (`REMOVAL_JITTER_MIN_MS`/`_MAX_MS`) so the bot doesn't act at inhuman,
+  sub-second speed. If a live test looks like removal silently failed, wait
+  out the jitter window before assuming a bug.
 - `src/actionsLog.js` — writes the human-readable `logs/actions.log` and sends
   the admin DM. This is the file to read to understand "what did the bot do."
 - `src/pendingReview.js` — disk-backed (not just in-memory) store for borderline
